@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نمایش Bounding Box روی تصویر</title>
+    <title>نمایش Bounding Box روی تصویر (نسخه نهایی)</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; max-width: 900px; margin: 2rem auto; padding: 1rem; line-height: 1.6; background-color: #f9f9f9; }
         .controls-container { background-color: #fff; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); margin-bottom: 2rem; }
@@ -11,21 +11,21 @@
         .input-group { margin-bottom: 1.5rem; }
         label { display: block; margin-bottom: 0.5rem; font-weight: bold; color: #555; }
         input[type="text"], input[type="file"] { width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        button { display: block; width: 100%; padding: 0.8rem; border: none; border-radius: 4px; color: white; font-size: 1.1rem; cursor: pointer; transition: background-color 0.3s; background-color: #4285F4; }
+        button { display: block; width: 100%; padding: 0.8rem; border: none; border-radius: 4px; color: white; font-size: 1.1rem; cursor: pointer; transition: background-color 0.3s; background-color: #4CAF50; } /* رنگ دکمه به سبز تغییر کرد */
         button:disabled { background-color: #ccc; cursor: not-allowed; }
         #status { margin-top: 1.5rem; padding: 1rem; background-color: #eef; border-radius: 4px; text-align: center; font-weight: bold; min-height: 25px; }
         
         #image-container {
             position: relative;
             margin-top: 2rem;
-            line-height: 0;
-            min-height: 100px; /* برای اینکه قبل از لود شدن تصویر هم فضا داشته باشد */
-            border: 2px dashed #ccc;
+            border: 2px dashed #ddd;
+            min-height: 200px;
+            display: none; /* در ابتدا مخفی است */
         }
         #image-display {
+            display: block;
             max-width: 100%;
             height: auto;
-            display: block; /* برای حذف فضای خالی زیر تصویر */
         }
         #overlay-container {
             position: absolute;
@@ -33,155 +33,151 @@
             left: 0;
             width: 100%;
             height: 100%;
-            pointer-events: none; /* اجازه می‌دهد روی تصویر کلیک شود */
         }
         .bounding-box {
             position: absolute;
-            border: 2px solid rgba(255, 0, 0, 0.7);
-            background-color: rgba(255, 255, 0, 0.2);
+            border: 2px solid #FF0000; /* قرمز */
+            background-color: rgba(255, 255, 0, 0.25); /* زرد شفاف */
             box-sizing: border-box;
-        }
-        .bounding-box-text {
-             position: absolute;
-             bottom: 100%; /* نمایش متن بالای کادر */
-             left: 0;
-             background-color: rgba(0, 0, 0, 0.7);
-             color: white;
-             font-size: 12px;
-             padding: 2px 4px;
-             white-space: pre-wrap;
-             font-family: monospace;
+            /* نمایش متن برای تست داخل کادر */
+            color: black;
+            font-size: 10px;
+            font-weight: bold;
+            padding: 2px;
+            overflow: hidden;
+            text-align: left;
+            direction: ltr;
         }
     </style>
 </head>
 <body>
 
     <div class="controls-container">
-        <h1>ابزار استخراج متن و موقعیت از مانگا</h1>
+        <h1>ابزار OCR مانگا</h1>
         <div class="input-group">
-            <label for="apiKey">کلید API جمنای</label>
+            <label for="apiKey">۱. کلید API جمنای را وارد کنید</label>
             <input type="text" id="apiKey" placeholder="کلید API خود را اینجا وارد کنید...">
         </div>
         <div class="input-group">
-            <label for="imageInput">فایل تصویر مانگا را انتخاب کنید</label>
+            <label for="imageInput">۲. تصویر مانگا را انتخاب کنید</label>
             <input type="file" id="imageInput" accept="image/*">
         </div>
-        <button id="onlineBtn">۱. آپلود تصویر و ۲. شروع OCR</button>
+        <button id="ocrBtn" disabled>۳. شروع OCR</button>
         <h2>وضعیت:</h2>
-        <div id="status">لطفاً یک تصویر انتخاب و دکمه را فشار دهید.</div>
+        <div id="status">لطفاً ابتدا یک تصویر انتخاب کنید...</div>
     </div>
 
+    <!-- این کانتینر تصویر و لایه رویی آن است -->
     <div id="image-container">
-        <img id="image-display" src="" alt="">
+        <img id="image-display" alt="تصویر شما اینجا نمایش داده می‌شود">
         <div id="overlay-container"></div>
     </div>
 
     <script>
         const apiKeyInput = document.getElementById('apiKey');
         const imageInput = document.getElementById('imageInput');
-        const onlineBtn = document.getElementById('onlineBtn');
+        const ocrBtn = document.getElementById('ocrBtn');
         const statusDiv = document.getElementById('status');
+        const imageContainer = document.getElementById('image-container');
         const imageDisplay = document.getElementById('image-display');
         const overlayContainer = document.getElementById('overlay-container');
 
-        onlineBtn.addEventListener('click', async () => {
-            const apiKey = apiKeyInput.value.trim();
-            const file = imageInput.files[0];
-
-            if (!apiKey || !file) {
-                alert('لطفاً کلید API و فایل تصویر را انتخاب کنید.');
+        // --- مرحله ۱: انتخاب و نمایش تصویر ---
+        imageInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) {
                 return;
             }
 
-            onlineBtn.disabled = true;
-            onlineBtn.innerText = "در حال بارگذاری تصویر...";
-            statusDiv.innerText = 'مرحله ۱ از ۳: در حال بارگذاری تصویر در صفحه...';
-            overlayContainer.innerHTML = ''; // پاک کردن کادرهای قبلی
+            // پاک کردن نتایج قبلی
+            overlayContainer.innerHTML = '';
 
-            // **مرحله ۱: خواندن و نمایش تصویر در صفحه**
             const reader = new FileReader();
+            reader.onload = (e) => {
+                // نمایش تصویر در صفحه
+                imageDisplay.src = e.target.result;
+                imageContainer.style.display = 'block';
+                
+                // فعال کردن دکمه OCR
+                ocrBtn.disabled = false;
+                statusDiv.innerText = 'تصویر آماده است. برای شروع OCR دکمه را بزنید.';
+            };
             reader.readAsDataURL(file);
-            reader.onload = () => {
-                imageDisplay.src = reader.result;
+        });
 
-                // **مرحله ۲: انتظار برای لود کامل تصویر و سپس ارسال به API**
-                imageDisplay.onload = async () => {
-                    statusDiv.innerText = 'مرحله ۲ از ۳: تصویر لود شد. در حال ارسال به Gemini...';
-                    try {
-                        const base64Data = reader.result.split(',')[1];
-                        const model = 'gemini-2.0-flash';
-                        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-                        const newPrompt = `Analyze the attached image and identify all distinct English text blocks or speech bubbles. For each block, provide the following information in a JSON array format. Each object in the array should represent one text block. The JSON object for each block must contain: "id": A unique sequential number, "text": The extracted text, preserving line breaks, and "bounding_box": An object with integer coordinates for "x", "y", "width", "height". Your entire output must be only the raw JSON array without any markdown formatting.`;
-                        const payload = { contents: [{ parts: [{ text: newPrompt }, { inline_data: { mime_type: file.type, data: base64Data } }] }] };
-                        
-                        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        // --- مرحله ۲: کلیک روی دکمه و شروع OCR ---
+        ocrBtn.addEventListener('click', async () => {
+            const apiKey = apiKeyInput.value.trim();
+            if (!apiKey) {
+                alert('لطفاً کلید API را وارد کنید.');
+                return;
+            }
 
-                        if (!response.ok) {
-                            const errorData = await response.json();
-                            throw new Error(`خطای API: ${errorData.error ? errorData.error.message : 'Unknown error'}`);
-                        }
+            // غیرفعال کردن دکمه و نمایش وضعیت
+            ocrBtn.disabled = true;
+            ocrBtn.innerText = "در حال پردازش...";
+            statusDiv.innerText = 'در حال ارسال درخواست به Gemini...';
 
-                        const data = await response.json();
+            try {
+                // گرفتن داده تصویر از تگ img که از قبل نمایش داده شده
+                const base64Src = imageDisplay.src;
+                const base64Data = base64Src.split(',')[1];
 
-                        if (data.candidates && data.candidates[0].content) {
-                            const jsonString = data.candidates[0].content.parts[0].text;
-                            const cleanedJsonString = jsonString.replace(/^```json\s*|```$/g, '').trim();
-                            const parsedData = JSON.parse(cleanedJsonString);
-                            
-                            // **مرحله ۳: رسم کادرها روی تصویر لود شده**
-                            statusDiv.innerText = 'مرحله ۳ از ۳: پاسخ دریافت شد. در حال رسم کادرها...';
-                            drawBoundingBoxes(parsedData);
-                            statusDiv.innerText = `پردازش کامل شد. ${parsedData.length} کادر شناسایی و رسم شد.`;
-                        } else {
-                           throw new Error('پاسخ دریافت شد اما فاقد محتوای متنی بود.');
-                        }
-                    } catch (error) {
-                        console.error(error);
-                        statusDiv.innerText = `عملیات با خطا مواجه شد: ${error.message}`;
-                    } finally {
-                        onlineBtn.disabled = false;
-                        onlineBtn.innerText = "۱. آپلود تصویر و ۲. شروع OCR";
-                    }
-                };
-                imageDisplay.onerror = () => {
-                     statusDiv.innerText = "خطا: فایل انتخاب شده یک تصویر معتبر نیست.";
-                     onlineBtn.disabled = false;
+                const model = 'gemini-2.0-flash';
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+                const newPrompt = `Analyze the attached image and identify all distinct English text blocks or speech bubbles. For each block, provide a JSON object with "id", "text" (preserving line breaks), and "bounding_box" (with integer coordinates for "x", "y", "width", "height"). Your entire output must be only the raw JSON array without any markdown formatting.`;
+                const payload = { contents: [{ parts: [{ text: newPrompt }, { inline_data: { mime_type: 'image/png', data: base64Data } }] }] };
+
+                const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`خطای API: ${errorData.error ? errorData.error.message : 'Unknown error'}`);
                 }
-            };
-            reader.onerror = () => {
-                statusDiv.innerText = "خطا در خواندن فایل از روی دیسک.";
-                onlineBtn.disabled = false;
-            };
+
+                const data = await response.json();
+                if (!data.candidates || !data.candidates[0].content) {
+                    throw new Error('پاسخ دریافت شد اما فاقد محتوا بود.');
+                }
+                
+                const jsonString = data.candidates[0].content.parts[0].text;
+                const cleanedJsonString = jsonString.replace(/^```json\s*|```$/g, '').trim();
+                const parsedData = JSON.parse(cleanedJsonString);
+                
+                statusDiv.innerText = 'پاسخ دریافت شد! در حال رسم کادرها...';
+                drawBoundingBoxes(parsedData); // رسم کادرها روی تصویر
+                statusDiv.innerText = `عملیات موفق! ${parsedData.length} کادر شناسایی و رسم شد.`;
+
+            } catch (error) {
+                console.error(error);
+                statusDiv.innerText = `عملیات با خطا مواجه شد: ${error.message}`;
+            } finally {
+                // فعال کردن مجدد دکمه در هر صورت (موفقیت یا شکست)
+                ocrBtn.disabled = false;
+                ocrBtn.innerText = "شروع OCR";
+            }
         });
 
         function drawBoundingBoxes(data) {
-            overlayContainer.innerHTML = ''; // پاک کردن مجدد برای اطمینان
             const naturalWidth = imageDisplay.naturalWidth;
-            const naturalHeight = imageDisplay.naturalHeight;
             const displayWidth = imageDisplay.clientWidth;
-            const displayHeight = imageDisplay.clientHeight;
-
-            // اگر ابعاد صفر بود، تابع را متوقف کن (جلوگیری از خطای تقسیم بر صفر)
-            if(naturalWidth === 0 || displayWidth === 0) return;
-
             const widthRatio = displayWidth / naturalWidth;
-            const heightRatio = displayHeight / naturalHeight;
+
+            // پاک کردن کادرهای قبلی
+            overlayContainer.innerHTML = '';
 
             data.forEach(boxInfo => {
                 const bb = boxInfo.bounding_box;
                 const boxDiv = document.createElement('div');
                 boxDiv.className = 'bounding-box';
                 
+                // محاسبه موقعیت و اندازه متناسب با تصویر نمایش داده شده
                 boxDiv.style.left = `${bb.x * widthRatio}px`;
-                boxDiv.style.top = `${bb.y * heightRatio}px`;
+                boxDiv.style.top = `${bb.y * widthRatio}px`; // استفاده از widthRatio برای هر دو جهت برای حفظ نسبت ابعاد
                 boxDiv.style.width = `${bb.width * widthRatio}px`;
-                boxDiv.style.height = `${bb.height * heightRatio}px`;
+                boxDiv.style.height = `${bb.height * widthRatio}px`;
 
-                // اضافه کردن متن به عنوان یک تگ جداگانه برای استایل‌دهی بهتر
-                const textDiv = document.createElement('div');
-                textDiv.className = 'bounding-box-text';
-                textDiv.innerText = boxInfo.text;
-                boxDiv.appendChild(textDiv);
+                boxDiv.innerText = boxInfo.text; // نمایش متن اصلی داخل کادر برای تست
 
                 overlayContainer.appendChild(boxDiv);
             });
