@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نمایش Bounding Box روی تصویر (نسخه نهایی)</title>
+    <title>ابزار OCR مانگا (نسخه نهایی)</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; max-width: 900px; margin: 2rem auto; padding: 1rem; line-height: 1.6; background-color: #f9f9f9; }
         .controls-container { background-color: #fff; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); margin-bottom: 2rem; }
@@ -11,42 +11,36 @@
         .input-group { margin-bottom: 1.5rem; }
         label { display: block; margin-bottom: 0.5rem; font-weight: bold; color: #555; }
         input[type="text"], input[type="file"] { width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        button { display: block; width: 100%; padding: 0.8rem; border: none; border-radius: 4px; color: white; font-size: 1.1rem; cursor: pointer; transition: background-color 0.3s; background-color: #4CAF50; } /* رنگ دکمه به سبز تغییر کرد */
+        button { display: block; width: 100%; padding: 0.8rem; border: none; border-radius: 4px; color: white; font-size: 1.1rem; cursor: pointer; transition: background-color 0.3s; background-color: #4CAF50; }
         button:disabled { background-color: #ccc; cursor: not-allowed; }
         #status { margin-top: 1.5rem; padding: 1rem; background-color: #eef; border-radius: 4px; text-align: center; font-weight: bold; min-height: 25px; }
         
+        /* *** استایل‌های جدید و ساده شده *** */
         #image-container {
-            position: relative;
+            position: relative; /* برای لایه overlay ضروری است */
             margin-top: 2rem;
             border: 2px dashed #ddd;
             min-height: 200px;
-            display: none; /* در ابتدا مخفی است */
+            padding: 5px;
+            /* دیگر مخفی نیست و از ابتدا نمایش داده می‌شود */
         }
         #image-display {
-            display: block;
+            display: block; /* برای حذف فضای خالی احتمالی */
             max-width: 100%;
             height: auto;
         }
         #overlay-container {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 5px;  /* هماهنگ با padding کانتینر */
+            left: 5px; /* هماهنگ با padding کانتینر */
+            right: 5px;
+            bottom: 5px;
         }
         .bounding-box {
             position: absolute;
-            border: 2px solid #FF0000; /* قرمز */
-            background-color: rgba(255, 255, 0, 0.25); /* زرد شفاف */
+            border: 2px solid #FF0000;
+            background-color: rgba(255, 255, 0, 0.25);
             box-sizing: border-box;
-            /* نمایش متن برای تست داخل کادر */
-            color: black;
-            font-size: 10px;
-            font-weight: bold;
-            padding: 2px;
-            overflow: hidden;
-            text-align: left;
-            direction: ltr;
         }
     </style>
 </head>
@@ -67,9 +61,9 @@
         <div id="status">لطفاً ابتدا یک تصویر انتخاب کنید...</div>
     </div>
 
-    <!-- این کانتینر تصویر و لایه رویی آن است -->
+    <!-- این کانتینر از ابتدا قابل مشاهده است -->
     <div id="image-container">
-        <img id="image-display" alt="تصویر شما اینجا نمایش داده می‌شود">
+        <img id="image-display" alt="تصویر شما در این کادر نمایش داده می‌شود">
         <div id="overlay-container"></div>
     </div>
 
@@ -78,27 +72,18 @@
         const imageInput = document.getElementById('imageInput');
         const ocrBtn = document.getElementById('ocrBtn');
         const statusDiv = document.getElementById('status');
-        const imageContainer = document.getElementById('image-container');
         const imageDisplay = document.getElementById('image-display');
         const overlayContainer = document.getElementById('overlay-container');
 
         // --- مرحله ۱: انتخاب و نمایش تصویر ---
         imageInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
-            if (!file) {
-                return;
-            }
+            if (!file) return;
 
-            // پاک کردن نتایج قبلی
-            overlayContainer.innerHTML = '';
-
+            overlayContainer.innerHTML = ''; // پاک کردن نتایج قبلی
             const reader = new FileReader();
             reader.onload = (e) => {
-                // نمایش تصویر در صفحه
                 imageDisplay.src = e.target.result;
-                imageContainer.style.display = 'block';
-                
-                // فعال کردن دکمه OCR
                 ocrBtn.disabled = false;
                 statusDiv.innerText = 'تصویر آماده است. برای شروع OCR دکمه را بزنید.';
             };
@@ -113,16 +98,12 @@
                 return;
             }
 
-            // غیرفعال کردن دکمه و نمایش وضعیت
             ocrBtn.disabled = true;
             ocrBtn.innerText = "در حال پردازش...";
             statusDiv.innerText = 'در حال ارسال درخواست به Gemini...';
 
             try {
-                // گرفتن داده تصویر از تگ img که از قبل نمایش داده شده
-                const base64Src = imageDisplay.src;
-                const base64Data = base64Src.split(',')[1];
-
+                const base64Data = imageDisplay.src.split(',')[1];
                 const model = 'gemini-2.0-flash';
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
                 const newPrompt = `Analyze the attached image and identify all distinct English text blocks or speech bubbles. For each block, provide a JSON object with "id", "text" (preserving line breaks), and "bounding_box" (with integer coordinates for "x", "y", "width", "height"). Your entire output must be only the raw JSON array without any markdown formatting.`;
@@ -145,39 +126,35 @@
                 const parsedData = JSON.parse(cleanedJsonString);
                 
                 statusDiv.innerText = 'پاسخ دریافت شد! در حال رسم کادرها...';
-                drawBoundingBoxes(parsedData); // رسم کادرها روی تصویر
+                drawBoundingBoxes(parsedData);
                 statusDiv.innerText = `عملیات موفق! ${parsedData.length} کادر شناسایی و رسم شد.`;
 
             } catch (error) {
                 console.error(error);
                 statusDiv.innerText = `عملیات با خطا مواجه شد: ${error.message}`;
             } finally {
-                // فعال کردن مجدد دکمه در هر صورت (موفقیت یا شکست)
                 ocrBtn.disabled = false;
                 ocrBtn.innerText = "شروع OCR";
             }
         });
 
         function drawBoundingBoxes(data) {
+            overlayContainer.innerHTML = '';
             const naturalWidth = imageDisplay.naturalWidth;
             const displayWidth = imageDisplay.clientWidth;
-            const widthRatio = displayWidth / naturalWidth;
 
-            // پاک کردن کادرهای قبلی
-            overlayContainer.innerHTML = '';
+            if (naturalWidth === 0) return; // جلوگیری از خطا اگر تصویر هنوز لود نشده
+            const ratio = displayWidth / naturalWidth;
 
             data.forEach(boxInfo => {
                 const bb = boxInfo.bounding_box;
                 const boxDiv = document.createElement('div');
                 boxDiv.className = 'bounding-box';
                 
-                // محاسبه موقعیت و اندازه متناسب با تصویر نمایش داده شده
-                boxDiv.style.left = `${bb.x * widthRatio}px`;
-                boxDiv.style.top = `${bb.y * widthRatio}px`; // استفاده از widthRatio برای هر دو جهت برای حفظ نسبت ابعاد
-                boxDiv.style.width = `${bb.width * widthRatio}px`;
-                boxDiv.style.height = `${bb.height * widthRatio}px`;
-
-                boxDiv.innerText = boxInfo.text; // نمایش متن اصلی داخل کادر برای تست
+                boxDiv.style.left = `${bb.x * ratio}px`;
+                boxDiv.style.top = `${bb.y * ratio}px`;
+                boxDiv.style.width = `${bb.width * ratio}px`;
+                boxDiv.style.height = `${bb.height * ratio}px`;
 
                 overlayContainer.appendChild(boxDiv);
             });
