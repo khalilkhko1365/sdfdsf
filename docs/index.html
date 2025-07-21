@@ -33,7 +33,7 @@
             <input type="file" id="imageInput" accept="image/*">
         </div>
 
-        <button id="onlineBtn">شروع OCR با موقعیت‌یابی (Gemini 1.5)</button>
+        <button id="onlineBtn">شروع OCR با موقعیت‌یابی (Gemini)</button>
 
         <h2>وضعیت:</h2>
         <div id="status">آماده برای شروع...</div>
@@ -51,7 +51,7 @@
         
         onlineBtn.addEventListener('click', async () => {
             const apiKey = apiKeyInput.value.trim();
-            const file = imageInput.files[0];
+            const file = imageInput.files;
 
             if (!apiKey || !file) {
                 alert('لطفاً کلید API و فایل تصویر را انتخاب کنید.');
@@ -66,37 +66,26 @@
             const reader = new FileReader();
             reader.readAsDataURL(file);
             reader.onload = async () => {
-                const base64Data = reader.result.split(',')[1];
+                const base64Data = reader.result.split(',');
                 
-                const model = 'gemini-2.0-flash';
+                // لطفاً نام مدلی که برای شما کار کرد را اینجا قرار دهید.
+                // بر اساس گفته شما، از یک مدل جدیدتر استفاده می‌کنیم.
+                const model = 'gemini-2.0-flash'; // یا 'gemini-2.0-flash' یا هر مدلی که برای شما کار می‌کند.
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-                // *** پرامپت جدید و هوشمند برای دریافت خروجی JSON ***
                 const newPrompt = `Analyze the attached image and identify all distinct English text blocks or speech bubbles.
 For each block, provide the following information in a JSON array format. Each object in the array should represent one text block.
 
 The JSON object for each block must contain:
 1.  "id": A unique sequential number for the block, starting from 1.
-2.  "text": The extracted text content from the block, cleaned up.
-3.  "bounding_box": An object containing the coordinates of the text block with the following keys:
-    - "x": The x-coordinate of the top-left corner.
-    - "y": The y-coordinate of the top-left corner.
-    - "width": The width of the text block.
-    - "height": The height of the text block.
+2.  "text": The extracted text content from the block, preserving line breaks.
+3.  "bounding_box": An object containing the integer coordinates of the text block with the following keys: "x", "y", "width", "height".
 
 Your entire output must be only the raw JSON array. Do not include markdown formatting like \`\`\`json.`;
 
                 const payload = {
                     contents: [{
-                        parts: [
-                            { text: newPrompt },
-                            {
-                                inline_data: {
-                                    mime_type: file.type,
-                                    data: base64Data
-                                }
-                            }
-                        ]
+                        parts: [ { text: newPrompt }, { inline_data: { mime_type: file.type, data: base64Data } } ]
                     }]
                 };
 
@@ -114,13 +103,14 @@ Your entire output must be only the raw JSON array. Do not include markdown form
 
                     const data = await response.json();
                     
-                    if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0].text) {
+                    if (data.candidates && data.candidates[0].content) {
                         const jsonString = data.candidates[0].content.parts[0].text;
                         
-                        // *** پردازش پاسخ JSON ***
+                        // *** راه حل کلیدی: پاک کردن خروجی از علامت‌های اضافی Markdown ***
+                        const cleanedJsonString = jsonString.replace(/^```json\s*|```$/g, '').trim();
+
                         try {
-                            const parsedData = JSON.parse(jsonString);
-                            // نمایش زیبای JSON در کادر نتایج
+                            const parsedData = JSON.parse(cleanedJsonString);
                             resultsDiv.innerText = JSON.stringify(parsedData, null, 2);
                             statusDiv.innerText = 'پردازش با موفقیت انجام شد!';
                         } catch (parseError) {
@@ -131,7 +121,7 @@ Your entire output must be only the raw JSON array. Do not include markdown form
 
                     } else {
                         resultsDiv.innerText = "متنی شناسایی نشد یا مدل به دلیل مسائل ایمنی محتوایی برنگرداند.";
-                        statusDiv.innerText = 'پاسخ دریافت شد اما فاقد متن بود.';
+                        statusDiv.innerText = 'پاسخ دریافت شد اما فاقد محتوا بود.';
                     }
 
                 } catch (error) {
@@ -140,14 +130,14 @@ Your entire output must be only the raw JSON array. Do not include markdown form
                     resultsDiv.innerText = error.message;
                 } finally {
                     onlineBtn.disabled = false;
-                    onlineBtn.innerText = "شروع OCR با موقعیت‌یابی (Gemini 1.5)";
+                    onlineBtn.innerText = "شروع OCR با موقعیت‌یابی (Gemini)";
                 }
             };
             reader.onerror = (error) => {
                 console.error(error);
                 statusDiv.innerText = 'خطا در خواندن فایل!';
                 onlineBtn.disabled = false;
-                onlineBtn.innerText = "شروع OCR با موقعیت‌یابی (Gemini 1.5)";
+                onlineBtn.innerText = "شروع OCR با موقعیت‌یابی (Gemini)";
             };
         });
     </script>
