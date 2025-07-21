@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تست OCR مانگا (نسخه انگلیسی آپدیت شده)</title>
+    <title>OCR با موقعیت‌یابی (Bounding Box)</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; max-width: 800px; margin: 2rem auto; padding: 1rem; line-height: 1.6; background-color: #f9f9f9; }
         h1, h2 { text-align: center; color: #333; }
@@ -11,110 +11,55 @@
         .input-group { margin-bottom: 1.5rem; }
         label { display: block; margin-bottom: 0.5rem; font-weight: bold; color: #555; }
         input[type="text"], input[type="file"] { width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        button { display: inline-block; width: 49%; padding: 0.8rem; border: none; border-radius: 4px; color: white; font-size: 1rem; cursor: pointer; transition: background-color 0.3s; }
-        #onlineBtn { background-color: #4285F4; } /* Google Blue */
-        #offlineBtn { background-color: #34A853; } /* Google Green */
+        button { display: block; width: 100%; padding: 0.8rem; border: none; border-radius: 4px; color: white; font-size: 1.1rem; cursor: pointer; transition: background-color 0.3s; background-color: #4285F4; }
         button:hover { opacity: 0.9; }
         button:disabled { background-color: #ccc; cursor: not-allowed; }
-        .button-group { display: flex; justify-content: space-between; }
         #status { margin-top: 1.5rem; padding: 1rem; background-color: #eef; border-radius: 4px; text-align: center; font-weight: bold; min-height: 25px; }
-        #results { margin-top: 1.5rem; padding: 1rem; background-color: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word; min-height: 100px; text-align: left; direction: ltr; }
+        #results { margin-top: 1.5rem; padding: 1.5rem; background-color: #2d2d2d; color: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word; min-height: 200px; text-align: left; direction: ltr; font-family: 'Courier New', Courier, monospace; }
     </style>
-    <!-- کتابخانه Tesseract.js برای OCR آفلاین -->
-    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
 </head>
 <body>
 
     <div class="container">
-        <h1>ابزار تست OCR مانگا (انگلیسی)</h1>
+        <h1>ابزار استخراج متن و موقعیت از مانگا</h1>
 
         <div class="input-group">
-            <label for="apiKey">کلید API جمنای (فقط برای تست آنلاین)</label>
+            <label for="apiKey">کلید API جمنای</label>
             <input type="text" id="apiKey" placeholder="کلید API خود را اینجا وارد کنید...">
         </div>
 
         <div class="input-group">
-            <label for="imageInput">فایل تصویر مانگا را انتخاب کنید (ترجیحاً انگلیسی)</label>
+            <label for="imageInput">فایل تصویر مانگا را انتخاب کنید</label>
             <input type="file" id="imageInput" accept="image/*">
         </div>
 
-        <div class="button-group">
-            <button id="offlineBtn">۱. شروع OCR آفلاین (Tesseract.js)</button>
-            <button id="onlineBtn">۲. شروع OCR آنلاین (Gemini 1.5)</button>
-        </div>
+        <button id="onlineBtn">شروع OCR با موقعیت‌یابی (Gemini 1.5)</button>
 
         <h2>وضعیت:</h2>
         <div id="status">آماده برای شروع...</div>
 
-        <h2>نتایج OCR:</h2>
+        <h2>نتایج ساختاریافته (JSON):</h2>
         <pre id="results"></pre>
     </div>
 
     <script>
         const apiKeyInput = document.getElementById('apiKey');
         const imageInput = document.getElementById('imageInput');
-        const offlineBtn = document.getElementById('offlineBtn');
         const onlineBtn = document.getElementById('onlineBtn');
         const statusDiv = document.getElementById('status');
         const resultsDiv = document.getElementById('results');
         
-        function setButtonsDisabled(disabled) {
-            offlineBtn.disabled = disabled;
-            onlineBtn.disabled = disabled;
-        }
-
-        // --- عملکرد OCR آفلاین (بدون تغییر) ---
-        offlineBtn.addEventListener('click', async () => {
-            const file = imageInput.files[0];
-            if (!file) {
-                alert('لطفاً ابتدا یک فایل تصویر انتخاب کنید.');
-                return;
-            }
-
-            setButtonsDisabled(true);
-            statusDiv.innerText = 'در حال آماده‌سازی OCR آفلاین...';
-            resultsDiv.innerText = '';
-
-            try {
-                const worker = await Tesseract.createWorker('eng', 1, {
-                    logger: m => {
-                        console.log(m);
-                        if (m.status === 'recognizing text') {
-                           statusDiv.innerText = `در حال تشخیص متن... (${Math.round(m.progress * 100)}%)`;
-                        } else {
-                           statusDiv.innerText = `وضعیت: ${m.status}`;
-                        }
-                    },
-                });
-
-                const { data: { text } } = await worker.recognize(file);
-                resultsDiv.innerText = text;
-                statusDiv.innerText = 'OCR آفلاین با موفقیت انجام شد!';
-                await worker.terminate();
-            } catch (error) {
-                console.error(error);
-                statusDiv.innerText = 'خطا در OCR آفلاین!';
-                resultsDiv.innerText = error.message;
-            } finally {
-                setButtonsDisabled(false);
-            }
-        });
-
-        // --- عملکرد OCR آنلاین (با مدل آپدیت شده) ---
         onlineBtn.addEventListener('click', async () => {
             const apiKey = apiKeyInput.value.trim();
             const file = imageInput.files[0];
 
-            if (!apiKey) {
-                alert('لطفاً کلید API جمنای را وارد کنید.');
-                return;
-            }
-             if (!file) {
-                alert('لطفاً یک فایل تصویر انتخاب کنید.');
+            if (!apiKey || !file) {
+                alert('لطفاً کلید API و فایل تصویر را انتخاب کنید.');
                 return;
             }
 
-            setButtonsDisabled(true);
+            onlineBtn.disabled = true;
+            onlineBtn.innerText = "در حال پردازش...";
             statusDiv.innerText = 'در حال تبدیل تصویر و ارسال به Gemini...';
             resultsDiv.innerText = '';
 
@@ -123,14 +68,28 @@
             reader.onload = async () => {
                 const base64Data = reader.result.split(',')[1];
                 
-                // *** تغییر کلیدی: آپدیت نام مدل به پیشنهاد گوگل ***
-                const model = 'gemini-2.0-flash';
+                const model = 'gemini-1.5-flash';
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+                // *** پرامپت جدید و هوشمند برای دریافت خروجی JSON ***
+                const newPrompt = `Analyze the attached image and identify all distinct English text blocks or speech bubbles.
+For each block, provide the following information in a JSON array format. Each object in the array should represent one text block.
+
+The JSON object for each block must contain:
+1.  "id": A unique sequential number for the block, starting from 1.
+2.  "text": The extracted text content from the block, cleaned up.
+3.  "bounding_box": An object containing the coordinates of the text block with the following keys:
+    - "x": The x-coordinate of the top-left corner.
+    - "y": The y-coordinate of the top-left corner.
+    - "width": The width of the text block.
+    - "height": The height of the text block.
+
+Your entire output must be only the raw JSON array. Do not include markdown formatting like \`\`\`json.`;
 
                 const payload = {
                     contents: [{
                         parts: [
-                            { text: "Extract all English text from this comic or manga panel. Provide only the text, without any extra descriptions or formatting." },
+                            { text: newPrompt },
                             {
                                 inline_data: {
                                     mime_type: file.type,
@@ -154,10 +113,22 @@
                     }
 
                     const data = await response.json();
+                    
                     if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0].text) {
-                        const text = data.candidates[0].content.parts[0].text;
-                        resultsDiv.innerText = text;
-                        statusDiv.innerText = 'OCR آنلاین با موفقیت انجام شد!';
+                        const jsonString = data.candidates[0].content.parts[0].text;
+                        
+                        // *** پردازش پاسخ JSON ***
+                        try {
+                            const parsedData = JSON.parse(jsonString);
+                            // نمایش زیبای JSON در کادر نتایج
+                            resultsDiv.innerText = JSON.stringify(parsedData, null, 2);
+                            statusDiv.innerText = 'پردازش با موفقیت انجام شد!';
+                        } catch (parseError) {
+                             console.error("JSON Parse Error:", parseError);
+                             statusDiv.innerText = 'خطا: پاسخ دریافت شد اما در فرمت JSON معتبر نبود.';
+                             resultsDiv.innerText = "متن خام دریافت شده از سرور:\n\n" + jsonString;
+                        }
+
                     } else {
                         resultsDiv.innerText = "متنی شناسایی نشد یا مدل به دلیل مسائل ایمنی محتوایی برنگرداند.";
                         statusDiv.innerText = 'پاسخ دریافت شد اما فاقد متن بود.';
@@ -165,16 +136,18 @@
 
                 } catch (error) {
                     console.error(error);
-                    statusDiv.innerText = 'خطا در OCR آنلاین!';
+                    statusDiv.innerText = 'خطا در ارتباط با API!';
                     resultsDiv.innerText = error.message;
                 } finally {
-                    setButtonsDisabled(false);
+                    onlineBtn.disabled = false;
+                    onlineBtn.innerText = "شروع OCR با موقعیت‌یابی (Gemini 1.5)";
                 }
             };
             reader.onerror = (error) => {
                 console.error(error);
                 statusDiv.innerText = 'خطا در خواندن فایل!';
-                setButtonsDisabled(false);
+                onlineBtn.disabled = false;
+                onlineBtn.innerText = "شروع OCR با موقعیت‌یابی (Gemini 1.5)";
             };
         });
     </script>
