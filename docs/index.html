@@ -33,7 +33,7 @@
             <input type="file" id="imageInput" accept="image/*">
         </div>
 
-        <button id="onlineBtn">شروع OCR با موقعیت‌یابی (Gemini)</button>
+        <button id="onlineBtn">شروع OCR با موقعیت‌یابی (Gemini 2.0)</button>
 
         <h2>وضعیت:</h2>
         <div id="status">آماده برای شروع...</div>
@@ -51,7 +51,7 @@
         
         onlineBtn.addEventListener('click', async () => {
             const apiKey = apiKeyInput.value.trim();
-            const file = imageInput.files;
+            const file = imageInput.files[0];
 
             if (!apiKey || !file) {
                 alert('لطفاً کلید API و فایل تصویر را انتخاب کنید.');
@@ -66,11 +66,10 @@
             const reader = new FileReader();
             reader.readAsDataURL(file);
             reader.onload = async () => {
-                const base64Data = reader.result.split(',');
+                const base64Data = reader.result.split(',')[1];
                 
-                // لطفاً نام مدلی که برای شما کار کرد را اینجا قرار دهید.
-                // بر اساس گفته شما، از یک مدل جدیدتر استفاده می‌کنیم.
-                const model = 'gemini-2.0-flash'; // یا 'gemini-2.0-flash' یا هر مدلی که برای شما کار می‌کند.
+                // *** تغییر کلیدی: استفاده دقیق از مدلی که شما دستور دادید ***
+                const model = 'gemini-2.0-flash';
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
                 const newPrompt = `Analyze the attached image and identify all distinct English text blocks or speech bubbles.
@@ -106,7 +105,6 @@ Your entire output must be only the raw JSON array. Do not include markdown form
                     if (data.candidates && data.candidates[0].content) {
                         const jsonString = data.candidates[0].content.parts[0].text;
                         
-                        // *** راه حل کلیدی: پاک کردن خروجی از علامت‌های اضافی Markdown ***
                         const cleanedJsonString = jsonString.replace(/^```json\s*|```$/g, '').trim();
 
                         try {
@@ -130,14 +128,14 @@ Your entire output must be only the raw JSON array. Do not include markdown form
                     resultsDiv.innerText = error.message;
                 } finally {
                     onlineBtn.disabled = false;
-                    onlineBtn.innerText = "شروع OCR با موقعیت‌یابی (Gemini)";
+                    onlineBtn.innerText = "شروع OCR با موقعیت‌یابی (Gemini 2.0)";
                 }
             };
             reader.onerror = (error) => {
                 console.error(error);
                 statusDiv.innerText = 'خطا در خواندن فایل!';
                 onlineBtn.disabled = false;
-                onlineBtn.innerText = "شروع OCR با موقعیت‌یابی (Gemini)";
+                onlineBtn.innerText = "شروع OCR با موقعیت‌یابی (Gemini 2.0)";
             };
         });
     </script>
