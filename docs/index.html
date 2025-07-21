@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تست OCR مانگا</title>
+    <title>تست OCR مانگا (نسخه انگلیسی)</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; max-width: 800px; margin: 2rem auto; padding: 1rem; line-height: 1.6; background-color: #f9f9f9; }
         h1, h2 { text-align: center; color: #333; }
@@ -18,7 +18,7 @@
         button:disabled { background-color: #ccc; cursor: not-allowed; }
         .button-group { display: flex; justify-content: space-between; }
         #status { margin-top: 1.5rem; padding: 1rem; background-color: #eef; border-radius: 4px; text-align: center; font-weight: bold; min-height: 25px; }
-        #results { margin-top: 1.5rem; padding: 1rem; background-color: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word; min-height: 100px; }
+        #results { margin-top: 1.5rem; padding: 1rem; background-color: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word; min-height: 100px; text-align: left; direction: ltr; }
     </style>
     <!-- کتابخانه Tesseract.js برای OCR آفلاین -->
     <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
@@ -26,7 +26,7 @@
 <body>
 
     <div class="container">
-        <h1>ابزار تست OCR مانگا</h1>
+        <h1>ابزار تست OCR مانگا (انگلیسی)</h1>
 
         <div class="input-group">
             <label for="apiKey">کلید API جمنای (فقط برای تست آنلاین)</label>
@@ -34,7 +34,7 @@
         </div>
 
         <div class="input-group">
-            <label for="imageInput">فایل تصویر مانگا را انتخاب کنید (ترجیحاً ژاپنی)</label>
+            <label for="imageInput">فایل تصویر مانگا را انتخاب کنید (ترجیحاً انگلیسی)</label>
             <input type="file" id="imageInput" accept="image/*">
         </div>
 
@@ -76,8 +76,8 @@
             resultsDiv.innerText = '';
 
             try {
-                // زبان پیش‌فرض ژاپنی است
-                const worker = await Tesseract.createWorker('jpn', 1, {
+                // *** تغییر ۱: استفاده از مدل زبان انگلیسی 'eng' ***
+                const worker = await Tesseract.createWorker('eng', 1, {
                     logger: m => {
                         console.log(m);
                         if (m.status === 'recognizing text') {
@@ -119,7 +119,6 @@
             statusDiv.innerText = 'در حال تبدیل تصویر و ارسال به Gemini...';
             resultsDiv.innerText = '';
 
-            // تبدیل فایل به فرمت Base64
             const reader = new FileReader();
             reader.readAsDataURL(file);
             reader.onload = async () => {
@@ -131,7 +130,8 @@
                 const payload = {
                     contents: [{
                         parts: [
-                            { text: "Extract all Japanese text from this manga panel. Provide only the text, without any extra descriptions or formatting." },
+                            // *** تغییر ۲: تغییر پرامپت برای استخراج متن انگلیسی ***
+                            { text: "Extract all English text from this comic or manga panel. Provide only the text, without any extra descriptions or formatting." },
                             {
                                 inline_data: {
                                     mime_type: file.type,
@@ -160,7 +160,6 @@
                         resultsDiv.innerText = text;
                         statusDiv.innerText = 'OCR آنلاین با موفقیت انجام شد!';
                     } else {
-                        // در صورتی که پاسخ موفقیت آمیز بود اما محتوایی برنگرداند
                         resultsDiv.innerText = "متنی شناسایی نشد یا مدل به دلیل مسائل ایمنی محتوایی برنگرداند.";
                         statusDiv.innerText = 'پاسخ دریافت شد اما فاقد متن بود.';
                     }
